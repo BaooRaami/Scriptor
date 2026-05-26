@@ -73,6 +73,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
 });
 
+const tabContextRules = new Map();
+
 function processTabComplete(tab) {
     const matchingSites = store.sites.filter(site => urlMatches(site.pattern, tab.url));
     const contextRules = [];
@@ -87,8 +89,23 @@ function processTabComplete(tab) {
             }
         });
     });
-    updateContextMenu(contextRules);
+    tabContextRules.set(tab.id, contextRules);
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
+        if (activeTabs[0] && activeTabs[0].id === tab.id) {
+            updateContextMenu(contextRules);
+        }
+    });
 }
+
+chrome.tabs.onActivated.addListener((activeInfo) => {
+    const rules = tabContextRules.get(activeInfo.tabId) || [];
+    updateContextMenu(rules);
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+    tabContextRules.delete(tabId);
+});
 
 function injectJS(tabId, js) {
     if (!js || !js.trim()) return;
